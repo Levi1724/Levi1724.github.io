@@ -1,0 +1,142 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #000; /* Fondo oscuro inicial */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Arial', sans-serif;
+    position: relative;
+    transition: background-color 3s ease-in-out; /* Transición suave para el fondo */
+}
+
+.heart-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    perspective: 1000px;
+}
+
+.heart {
+    width: 100px;
+    height: 100px;
+    background-color: #FF69B4; /* Rosado inicial del corazón */
+    position: relative;
+    transform: scale(0); /* Empieza oculto */
+    animation: appearHeart 2s forwards; /* Animación de aparición */
+    box-shadow: 0 0 10px rgba(255, 105, 180, 0.7); /* Sombra rosada */
+    transition: transform 0.5s ease-out, opacity 0.5s ease-out; /* Transición para el corazón */
+}
+
+.heart::before,
+.heart::after {
+    content: '';
+    width: 100px;
+    height: 100px;
+    background-color: #FF69B4; /* Rosado inicial del corazón */
+    border-radius: 50%;
+    position: absolute;
+}
+
+.heart::before {
+    top: -50px;
+    left: 0;
+}
+
+.heart::after {
+    top: 0;
+    left: 50px;
+}
+
+/* Animación de aparición del corazón */
+@keyframes appearHeart {
+    0% { transform: scale(0) rotate(0deg); opacity: 0; }
+    50% { transform: scale(1.2) rotate(-5deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* Animación de brillo del corazón y cubrimiento de la pantalla */
+@keyframes shineAndCover {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+        background-color: #FF69B4; /* Comienza rosado */
+        box-shadow: 0 0 10px rgba(255, 105, 180, 0.7);
+    }
+    10% {
+        box-shadow: 0 0 30px rgba(255, 105, 180, 1), 0 0 60px rgba(255, 105, 180, 0.8); /* Brillo rosado */
+    }
+    50% { /* Punto intermedio donde es completamente rosado y cubre la pantalla */
+        transform: scale(200);
+        opacity: 1;
+        border-radius: 0;
+        background-color: #FF69B4; /* Completamente rosado */
+    }
+    100% { /* Termina en rojo */
+        transform: scale(200);
+        opacity: 1;
+        border-radius: 0;
+        background-color: #FF69B4; /* Rojo */
+    }
+}
+
+.heart.shining-and-covering {
+    animation: shineAndCover 2.5s forwards; /* Duración ajustada para la transición de color */
+    z-index: 100; /* Asegura que cubra todo */
+}
+
+/* Estilos para las palabras "Te amo" */
+.te-amo-word {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #FF0000; /* Color rojo para la lluvia de palabras */
+    font-size: 2em;
+    font-weight: bold;
+    opacity: 0;
+    pointer-events: none; /* Para que no interfieran con clics */
+    animation: rainTeAmo linear infinite; /* Animación de lluvia, continua */
+    text-shadow: 0 0 5px rgba(255, 0, 0, 0.7); /* Sombra roja */
+    z-index: 150; /* Por encima del fondo que cambia de color, pero debajo de los mensajes finales */
+}
+
+@keyframes rainTeAmo {
+    0% { transform: translateY(-50px) translateX(0); opacity: 0; } /* Empieza más arriba de la pantalla */
+    5% { opacity: 1; } /* Aparece rápidamente */
+    95% { opacity: 1; } /* Permanece visible */
+    100% { transform: translateY(100vh) translateX(0); opacity: 0; } /* Desaparece al final de la pantalla */
+}
+
+/* Estilos para los mensajes finales */
+.message-container {
+    position: absolute;
+    text-align: center;
+    color: #fff;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 1.5s ease-in-out, transform 1.5s ease-in-out; /* Transición suave para los mensajes */
+    z-index: 200; /* Por encima de todo lo demás */
+}
+
+.message-container.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.anniversary-message {
+    color: gold;
+    font-size: 3em;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+}
+
+.love-message {
+    color: white;
+    font-size: 1.8em;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+}
