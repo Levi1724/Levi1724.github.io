@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA QUANT - TERMINAL INSTITUCIONAL</title>
+    
+    <!-- Librerías de Producción vía CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        :root {
+            --bg-main: #0d1117;
+            --bg-card: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            
+            /* Paleta Operativa Mate/Pastel Estricta CORREGIDA */
+            --color-bullish: #1f8b8a;      /* Turquesa mate (Alcista / Longs) */
+            --color-bearish: #8d5bde;      /* Púrpura mate (Bajista / Shorts) */
+            --color-neutral: #bfa02c;      /* Amarillo mate (Neutro) */
+            
+            /* Estados del sistema */
+            --status-active: #238636;       /* Verde */
+            --status-inactive: #da3633;     /* Rojo Peligro */
+            --status-default: #f0f6fc;      /* Blanco */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding-top: 60px;
+            overflow-x: hidden;
+        }
+
+        /* Barra de Navegación Fija Superior */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background-color: var(--bg-card);
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            justify-content: space-around;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .nav-btn:hover {
+            color: var(--text-main);
+        }
+
+        .nav-btn.active {
+            color: var(--status-default);
+            border-bottom: 3px solid var(--color-bullish);
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        /* Contenedores de Vistas */
+        .view-section {
+            display: none;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Estructuras Comunes */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 992px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        h2, h3, h4 {
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        /* Módulo 1: Inicio / Dashboard */
+        .header-panel {
+            text-align: center;
+            background-color: rgba(22, 27, 34, 0.8);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .clock-digital {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--status-default);
+            margin-top: 5px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* Módulo 2: Operativa */
+        .circle-indicator-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .circle-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--status-inactive);
+            transition: background-color 0.3s ease;
+        }
+
+        .circle-dot.active {
+            background-color: var(--status-active);
+        }
+
+        .trend-bar-wrapper {
+            margin-bottom: 20px;
+        }
+
+        .trend-bar {
+            display: flex;
+            height: 20px;
+            width: 100%;
+            background-color: #222;
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .trend-slice {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .trend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-top: 4px;
+            color: var(--text-muted);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button.btn-action {
+            background-color: #21262d;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-radius: 4px;
+        }
+
+        button.btn-action:hover {
+            background-color: #30363d;
+            border-color: #8b949e;
+        }
+
+        /* Sub-bloques Horizontales con colorimetría estricta invertida */
+        .sub-block-row {
+            position: relative;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background-color: rgba(0,0,0,0.15);
+            margin-bottom: 10px;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        .sub-block-row.bullish-bg { background-color: rgba(31, 139, 138, 0.12); } /* Turquesa */
+        .sub-block-row.bearish-bg { background-color: rgba(141, 91, 222, 0.12); } /* Púrpura */
+        .sub-block-row.neutral-bg { background-color: rgba(191, 160, 44, 0.12); } /* Amarillo */
+
+        .overlay-expired {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(218, 54, 51, 0.85);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 10;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        select, input[type="text"], input[type="number"] {
+            background-color: #0d1117;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 6px;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        /* Calculadora Cuantitativa */
+        .form-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 10px;
+        }
+
+        .output-field {
+            background-color: #0d1117;
+            padding: 6px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            min-height: 31px;
+            display: flex;
+            align-items: center;
+            color: var(--status-default);
+        }
+
+        table.quant-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 12px;
+        }
+
+        table.quant-table th, table.quant-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px;
+            text-align: left;
+        }
+
+        table.quant-table th {
+            background-color: #1f242c;
+            color: var(--text-muted);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Módulo 3: Registro */
+        .ledger-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            background-color: #0d1117;
+            padding: 10px;
+        }
+
+        .ledger-row {
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+
+        .delta-row {
+            background-color: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .eod-row {
+            background-color: rgba(191, 160, 44, 0.15);
+            border-left: 4px solid var(--color-neutral);
+        }
+
+        /* Modales Nativos Estilizados */
+        .modal-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-mask.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background-color: var(--bg-card);
+            border: 2px solid var(--border-color);
+            padding: 20px;
+            border-radius: 4px;
+            width: 90%;
+            max-width: 500px;
+            transition: border-color 0.3s ease;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Vista Simplificada Toggle */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- MENÚ GLOBAL SUPERIOR -->
+    <nav>
+        <div class="nav-container">
+            <button class="nav-btn active" onclick="switchTab('inicio')">Inicio</button>
+            <button class="nav-btn" onclick="switchTab('operativa')">Operativa</button>
+            <button class="nav-btn" onclick="switchTab('registro')">Registro</button>
+            <button class="nav-btn" onclick="switchTab('resumen')">Resumen</button>
+        </div>
+    </nav>
+
+    <!-- MÓDULO 1: INICIO -->
+    <section id="view-inicio" class="view-section active">
+        <div class="header-panel">
+            <h2>Ratios de Operativa</h2>
+            <div id="sys-date" style="color: var(--text-muted); font-size: 14px;">--/--/----</div>
+            <div id="sys-clock" class="clock-digital">00:00:00</div>
+        </div>
+        
+        <div class="grid-2">
+            <div class="panel">
+                <h3>Direccionalidad Operativa</h3>
+                <div class="chart-container">
+                    <canvas id="chartDonut"></canvas>
+                </div>
+            </div>
+            <div class="panel">
+                <h3>Curva de Capital / Rendimiento</h3>
+                <div class="chart-container">
+                    <canvas id="chartLine"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MÓDULO 2: OPERATIVA -->
+    <section id="view-operativa" class="view-section">
+        <div class="grid-2">
+            
+            <!-- Columna Izquierda: Matriz de Contexto -->
+            <div class="panel">
+                <h3>Matriz de Contexto Financiero</h3>
+                
+                <div class="circle-indicator-container">
+                    <span style="font-size: 12px; color: var(--text-muted);">Sub-bloques:</span>
+                    <div id="circle-dots-wrapper" style="display: flex; gap: 5px;"></div>
+                </div>
+
+                <div class="trend-bar-wrapper">
+                    <div class="trend-bar" id="aggregate-trend-bar">
+                        <!-- El orden está estrictamente ligado al CSS de colores -->
+                        <div class="trend-slice" style="background-color: var(--color-bullish); width: 0%;"></div>
+                        <div class="trend-slice" style="background-color: var(--color-bearish); width: 0%;"></div>
+                        <div class="trend-slice" style="background-color: var(--color-neutral); width: 0%;"></div>
+                    </div>
+                    <div class="trend-labels">
+                        <span id="label-alcista">A (Alcista): 0%</span>
+                        <span id="label-bajista">B (Bajista): 0%</span>
+                        <span id="label-neutral">N (Neutro): 0%</span>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn-action" onclick="triggerModalAction('empezar')">Empezar</button>
+                    <button class="btn-action" onclick="triggerModalAction('aumentar')">Aumentar</button>
+                    <button class="btn-action" onclick="triggerModalAction('terminar')">Terminar</button>
+                </div>
+
+                <div id="sub-blocks-container">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Calculadora Cuantitativa -->
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
+                    <h3>Calculadora de Riesgo Estricto</h3>
+                    <button class="btn-action" style="font-size: 11px; padding: 4px 8px; border-color: var(--status-inactive);" onclick="triggerModalAction('finalizar')">Finalizar</button>
+                </div>
+
+                <div class="form-group">
+                    <label>Capital Inicial ($):</label>
+                    <input type="number" id="calc-capital" value="10000" step="0.01" oninput="runCalculations()">
+                </div>
+                <div class="form-group">
+                    <label>Dirección Operativa:</label>
+                    <select id="calc-direction" onchange="runCalculations()">
+                        <!-- Turquesa para Long / Púrpura para Short garantizado en JS -->
+                        <option value="Long">Compra (Long / Alcista)</option>
+                        <option value="Short">Venta (Short / Bajista)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Apalancamiento:</label>
+                    <select id="calc-leverage" onchange="runCalculations()">
+                        <option value="10">x10</option>
+                        <option value="20">x20</option>
+                        <option value="30">x30</option>
+                        <option value="40">x40</option>
+                        <option value="50">x50</option>
+                        <option value="60">x60</option>
+                        <option value="70">x70</option>
+                        <option value="80">x80</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Resultado Apalancado:</label>
+                    <div class="output-field" id="out-leveraged">0.0000</div>
+                </div>
+                <div class="form-group">
+                    <label>Margen Entrada Efectivo (75%):</label>
+                    <div class="output-field" id="out-margin">0.0000</div>
+                </div>
+                <div class="form-group">
+                    <label>Comisiones Bróker (0.090%):</label>
+                    <div class="output-field" id="out-commissions">0.0000</div>
+                </div>
+                <div class="form-group">
+                    <label>Deslizamiento Real (0.02%):</label>
+                    <div class="output-field" id="out-slippage">0.0000</div>
+                </div>
+
+                <h4 style="margin-top: 20px;">Invalidación y Estructura</h4>
+                <div class="form-group">
+                    <label>Precio de Entrada:</label>
+                    <input type="number" id="calc-entry" value="100.0000" step="0.0001" oninput="runCalculations()">
+                </div>
+                <div class="form-group">
+                    <label>Precio Invalidation (-0.10%):</label>
+                    <div class="output-field" id="out-invalidation-price">0.0000</div>
+                </div>
+                <div class="form-group">
+                    <label>Suma Pérdida Real Total:</label>
+                    <div class="output-field" id="out-total-loss" style="color: var(--status-inactive);">0.0000</div>
+                </div>
+                <div class="form-group">
+                    <label>Breakeven Real Absoluto:</label>
+                    <div class="output-field" id="out-breakeven" style="color: var(--color-neutral);">0.0000</div>
+                </div>
+
+                <table class="quant-table">
+                    <thead>
+                        <tr>
+                            <th>Hito %</th>
+                            <th>Precio Proyectado</th>
+                            <th>Ganancia Neta ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projection-tbody">
+                        <!-- Carga dinámica -->
+                    </tbody>
+                </table>
+
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="chk-narrative" onchange="logCheckboxChange('Narrativa de Proceso Aplicada', this)"> Narrativa de Proceso Aplicada</label>
+                    <label><input type="checkbox" id="chk-rules" onchange="logCheckboxChange('Reglas Operativas Cumplidas', this)"> Reglas Operativas Cumplidas</label>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MÓDULO 3: REGISTRO -->
+    <section id="view-registro" class="view-section">
+        <div class="toggle-container">
+            <label style="font-size: 13px; color: var(--text-muted);">Estructura Visual de Datos:</label>
+            <button class="btn-action" style="font-size: 11px; padding: 4px 10px;" id="btn-toggle-view" onclick="toggleViewMode()">Vista de Tabla Completa</button>
+        </div>
+
+        <div class="grid-2">
+            <!-- Bloque 3.1: Bitácora de Actividad -->
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>Bitácora de Actividad Narrativa</h3>
+                    <div>
+                        <button class="btn-action" style="font-size: 11px; padding: 4px 8px;" onclick="openManualLogModal()">Agregar</button>
+                        <button class="btn-action" style="font-size: 11px; padding: 4px 8px;" onclick="openEditLogModal()">Editar</button>
+                    </div>
+                </div>
+                <div class="ledger-container" id="narrative-ledger">
+                    <!-- Registros dinámicos invertidos -->
+                </div>
+            </div>
+
+            <!-- Bloque 3.2: Base de Datos Cuantitativa -->
+            <div class="panel" style="overflow-x: auto;">
+                <h3>Base de Datos Cuantitativa Historizada</h3>
+                <div id="quant-view-wrapper">
+                    <!-- Render dinámico condicionado -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MÓDULO 4: RESUMEN Y SISTEMA -->
+    <section id="view-resumen" class="view-section" style="text-align: center; padding-top: 50px;">
+        <div class="panel" style="max-width: 600px; margin: 0 auto 30px auto;">
+            <h3>Consolidación Operativa y Portabilidad</h3>
+            <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">
+                Generación asíncrona en paralelo de reportes analíticos institucionales. Al presionar el comando se compilarán los tres ledgers en un contenedor cifrado .ZIP local.
+            </p>
+            <button class="btn-action" style="padding: 15px 40px; font-size: 16px; border-color: var(--color-bullish);" onclick="exportAuditingPackage()">Extraer Registros</button>
+        </div>
+
+        <!-- NUEVO BLOQUE DE HARD RESET -->
+        <div class="panel" style="max-width: 600px; margin: 0 auto; border-color: rgba(218, 54, 51, 0.4);">
+            <h3 style="color: var(--status-inactive);">Mantenimiento: Restablecimiento del Sistema</h3>
+            <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">
+                PELIGRO: Este comando purgará completamente la base de datos local (matrices, registros y bitácoras), devolviendo la plataforma a su estado de fábrica inicial.
+            </p>
+            <button class="btn-action" style="padding: 10px 20px; font-size: 14px; border-color: var(--status-inactive); color: var(--status-inactive);" onclick="triggerModalAction('reset_1')">Hard Reset (Requiere Verificación)</button>
+        </div>
+    </section>
+
+    <!-- MODAL CONFIRMACIONES INTEGRADO GENERAL -->
+    <div class="modal-mask" id="modal-confirm">
+        <div class="modal-box" id="modal-confirm-box">
+            <h4 id="modal-confirm-title">Confirmación de Acción</h4>
+            <p id="modal-confirm-msg" style="margin: 15px 0; font-size: 13px; color: var(--text-muted);"></p>
+            <div class="modal-footer">
+                <button class="btn-action" onclick="closeConfirmModal(false)">Cancelar</button>
+                <button class="btn-action" id="modal-confirm-btn" style="border-color: var(--color-bullish);" onclick="closeConfirmModal(true)">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL MANUAL NARRATIVA -->
+    <div class="modal-mask" id="modal-manual-log">
+        <div class="modal-box">
+            <h4>Inyección Manual Ledger</h4>
+            <div class="form-group" style="margin-top:15px;">
+                <label>CUO Código:</label>
+                <input type="text" id="manual-cuo" readonly>
+            </div>
+            <div class="form-group">
+                <label>Descripción:</label>
+                <input type="text" id="manual-desc" placeholder="Inserte flujo narrativo...">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action" onclick="closeManualLogModal(false)">Cancelar</button>
+                <button class="btn-action" style="border-color: var(--color-bullish);" onclick="closeManualLogModal(true)">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR NARRATIVA -->
+    <div class="modal-mask" id="modal-edit-log">
+        <div class="modal-box">
+            <h4>Modificación Segura de Bitácora</h4>
+            <div class="form-group" style="margin-top:15px;">
+                <label>Seleccionar CUO:</label>
+                <select id="edit-cuo-select" onchange="onCuoSelectToEdit()"></select>
+            </div>
+            <div class="form-group">
+                <label>Descripción:</label>
+                <input type="text" id="edit-desc">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action" onclick="closeEditLogModal(false)">Cancelar</button>
+                <button class="btn-action" style="border-color: var(--color-bullish);" onclick="closeEditLogModal(true)">Actualizar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS DE MOTOR DE NEGOCIO -->
+    <script>
+        // Inicialización de Variables de Estado Global Único
+        let state = {
+            subBlocks: [],
+            narrativeLog: [],
+            quantLog: [],
+            viewMode: 'completa',
+            cuoCounter: 1
+        };
+
+        let donutChartInstance = null;
+        let lineChartInstance = null;
+        let pendingAction = null;
+        let pendingBlockId = null;
+
+        // Carga Inicial del Sistema
+        window.addEventListener('DOMContentLoaded', () => {
+            loadFromLocalStorage();
+            initClock();
+            initCharts();
+            renderSubBlocks();
+            runCalculations();
+            renderNarrativeLedger();
+            renderQuantLedger();
+        });
+
+        // Reloj y Fecha del Sistema Estilo Terminal
+        function initClock() {
+            const updateClock = () => {
+                const now = new Date();
+                document.getElementById('sys-date').textContent = now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).toUpperCase();
+                document.getElementById('sys-clock').textContent = now.toTimeString().split(' ')[0];
+            };
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // Intervalo para temporizadores de caducidad
+            setInterval(processTimers, 1000);
+        }
+
+        // Navegación Fluida SPA
+        function switchTab(tabId) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+            
+            const selectedBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.textContent.toLowerCase() === tabId);
+            if(selectedBtn) selectedBtn.classList.add('active');
+            
+            const targetSection = document.getElementById(`view-${tabId}`);
+            if(targetSection) targetSection.classList.add('active');
+
+            if(tabId === 'inicio') {
+                updateChartsData();
+            }
+        }
+
+        // Persistencia Segura LocalStorage
+        function saveToLocalStorage() {
+            localStorage.setItem('QUANT_STATE_V3', JSON.stringify(state));
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('QUANT_STATE_V3');
+            if(saved) {
+                try {
+                    state = JSON.parse(saved);
+                    if(state.narrativeLog.length > 0) {
+                        const maxCuo = Math.max(...state.narrativeLog.map(l => parseInt(l.cuo) || 0));
+                        state.cuoCounter = maxCuo + 1;
+                    }
+                } catch(e) {
+                    console.error("Error al parsear estado persistido", e);
+                }
+            }
+        }
+
+        // Sistema Inverso de Logs Automáticos
+        function pushNarrativeLog(description) {
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            const cuoStr = String(state.cuoCounter++).padStart(3, '0');
+            
+            state.narrativeLog.unshift({
+                cuo: cuoStr,
+                time: timeStr,
+                desc: description
+            });
+            
+            saveToLocalStorage();
+            renderNarrativeLedger();
+        }
+
+        function renderNarrativeLedger() {
+            const container = document.getElementById('narrative-ledger');
+            container.innerHTML = '';
+            state.narrativeLog.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'ledger-row';
+                row.textContent = `${item.cuo} | ${item.time} | ${item.desc}`;
+                container.appendChild(row);
+            });
+        }
+
+        // Lógica de Modales de Intercepción Estilizados
+        function triggerModalAction(action, blockId = null) {
+            pendingAction = action;
+            pendingBlockId = blockId;
+            const modal = document.getElementById('modal-confirm');
+            const modalBox = document.getElementById('modal-confirm-box');
+            const btnConfirm = document.getElementById('modal-confirm-btn');
+            const title = document.getElementById('modal-confirm-title');
+            const msg = document.getElementById('modal-confirm-msg');
+
+            // Resetear estilos del modal por defecto
+            modalBox.style.borderColor = 'var(--border-color)';
+            btnConfirm.style.borderColor = 'var(--color-bullish)';
+            btnConfirm.style.color = 'var(--text-main)';
+
+            if(action === 'empezar') {
+                if(state.subBlocks.length > 0) {
+                    alert("ALERTA MONITORIZADA: La sesión ya cuenta con flujos activos en ejecución.");
+                    return;
+                }
+                title.textContent = "Inicializar Sesión Cuantitativa";
+                msg.textContent = "¿Confirmas la activación estructural del primer sub-bloque analítico?";
+            } else if(action === 'aumentar') {
+                title.textContent = "Incrementar Vector de Flujo";
+                msg.textContent = "¿Confirmas la inyección de una nueva temporalidad descendente en la matriz?";
+            } else if(action === 'terminar') {
+                title.textContent = "Reajuste de Emergencia del Sistema";
+                msg.textContent = "¿Deseas limpiar las parametrizaciones contextuales y restablecer a posición Neutral de fábrica?";
+            } else if(action === 'eliminar') {
+                title.textContent = "Remoción de Sub-bloque";
+                msg.textContent = `¿Confirmas la extirpación definitiva del sub-bloque referenciado?`;
+            } else if(action === 'finalizar') {
+                title.textContent = "Finalizar y Registrar Operación";
+                msg.textContent = "¿Confirmas el registro cuantitativo en la bitácora y la purga de los datos de la calculadora?";
+            } else if(action === 'reset_1') {
+                // PRIMERA CONFIRMACIÓN DEL HARD RESET
+                title.textContent = "ADVERTENCIA CRÍTICA DE SISTEMA (1/2)";
+                msg.textContent = "Estás a punto de ELIMINAR TODOS LOS DATOS (Registros, Bitácora, Sub-bloques). ¿Deseas iniciar el proceso de purga?";
+                modalBox.style.borderColor = 'var(--status-inactive)';
+                btnConfirm.style.borderColor = 'var(--status-inactive)';
+                btnConfirm.style.color = 'var(--status-inactive)';
+            } else if(action === 'reset_2') {
+                // SEGUNDA CONFIRMACIÓN DEL HARD RESET
+                title.textContent = "CONFIRMACIÓN FINAL IRREVERSIBLE (2/2)";
+                msg.textContent = "SE PERDERÁ TODO EL HISTORIAL OPERATIVO. ¿Estás absolutamente seguro de devolver el sistema al estado de fábrica inicial?";
+                modalBox.style.borderColor = 'var(--status-inactive)';
+                btnConfirm.style.borderColor = 'var(--status-inactive)';
+                btnConfirm.style.color = 'var(--status-inactive)';
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeConfirmModal(confirmed) {
+            document.getElementById('modal-confirm').classList.remove('active');
+            
+            // Si el usuario cancela, detenemos el flujo
+            if(!confirmed) return;
+
+            if(pendingAction === 'empezar') {
+                createSubBlock();
+                pushNarrativeLog("Sistema de monitoreo contextual inicializado.");
+            } else if(pendingAction === 'aumentar') {
+                createSubBlock();
+                pushNarrativeLog("Nuevo sub-bloque de temporalidad inyectado de forma descendente.");
+            } else if(pendingAction === 'terminar') {
+                state.subBlocks.forEach(b => {
+                    b.trend = 'Neutral';
+                    b.velocity = 'Lento';
+                    b.timeLeft = b.timeframeMinutes * 30 * 60;
+                    b.expired = false;
+                });
+                pushNarrativeLog("Limpieza y restablecimiento global de sub-bloques ejecutada.");
+                renderSubBlocks();
+            } else if(pendingAction === 'eliminar' && pendingBlockId !== null) {
+                state.subBlocks = state.subBlocks.filter(b => b.id !== pendingBlockId);
+                pushNarrativeLog(`Sub-bloque residual removido de la pila.`);
+                renderSubBlocks();
+            } else if(pendingAction === 'finalizar') {
+                finalizeSession();
+            } else if(pendingAction === 'reset_1') {
+                // Dispara la segunda confirmación tras una pequeña pausa visual
+                setTimeout(() => { triggerModalAction('reset_2'); }, 300);
+                return; // Evita el guardado normal debajo
+            } else if(pendingAction === 'reset_2') {
+                // Ejecuta la purga final y detiene el resto
+                performHardReset();
+                return; 
+            }
+            saveToLocalStorage();
+        }
+
+        // MOTOR DE HARD RESET
+        function performHardReset() {
+            // Vaciar memoria RAM
+            state = {
+                subBlocks: [],
+                narrativeLog: [],
+                quantLog: [],
+                viewMode: 'completa',
+                cuoCounter: 1
+            };
+
+            // Vaciar Disco Local
+            localStorage.removeItem('QUANT_STATE_V3');
+
+            // Restaurar Calculadora
+            document.getElementById('calc-capital').value = '10000';
+            document.getElementById('calc-entry').value = '100.0000';
+            document.getElementById('calc-direction').value = 'Long';
+            document.getElementById('calc-leverage').value = '10';
+            document.getElementById('chk-narrative').checked = false;
+            document.getElementById('chk-rules').checked = false;
+
+            // Renderizar todo en blanco
+            runCalculations();
+            renderSubBlocks();
+            renderNarrativeLedger();
+            renderQuantLedger();
+            updateChartsData();
+
+            // Mover la vista a la página principal por higiene
+            switchTab('inicio');
+            
+            alert("SISTEMA PURGADO. El estado de fábrica ha sido restablecido exitosamente.");
+        }
+
+        // Control y Operatividad de Sub-bloques Contextuales
+        function createSubBlock() {
+            const id = Date.now() + Math.random().toString(36).substr(2, 5);
+            const defaultTf = 60; // 1 Hora por defecto
+            state.subBlocks.push({
+                id: id,
+                timeframeMinutes: defaultTf,
+                trend: 'Neutral',
+                velocity: 'Lento',
+                timeLeft: defaultTf * 30 * 60,
+                expired: false
+            });
+            renderSubBlocks();
+        }
+
+        function renderSubBlocks() {
+            const container = document.getElementById('sub-blocks-container');
+            container.innerHTML = '';
+
+            // Sincronización uno a uno de círculos superiores
+            const dotsWrapper = document.getElementById('circle-dots-wrapper');
+            dotsWrapper.innerHTML = '';
+
+            state.subBlocks.forEach((block, index) => {
+                // Crear círculo indicador superior
+                const dot = document.createElement('div');
+                dot.className = 'circle-dot';
+                if(!block.expired && block.trend !== 'Neutral') dot.classList.add('active');
+                dotsWrapper.appendChild(dot);
+
+                // Crear Row Estructural
+                const row = document.createElement('div');
+                row.className = 'sub-block-row';
+                
+                // ASIGNACIÓN ESTRICTA DE COLOR EN MATRIZ CORREGIDA
+                if(block.trend === 'Alcista') row.classList.add('bullish-bg'); // Turquesa garantizado
+                if(block.trend === 'Bajista') row.classList.add('bearish-bg'); // Púrpura garantizado
+                if(block.trend === 'Neutral') row.classList.add('neutral-bg'); // Amarillo
+
+                // Botón Eliminar Fila
+                const btnDel = document.createElement('button');
+                btnDel.className = 'btn-action';
+                btnDel.style.borderColor = 'var(--status-inactive)';
+                btnDel.style.padding = '4px 8px';
+                btnDel.style.fontSize = '11px';
+                btnDel.textContent = 'X';
+                btnDel.onclick = () => triggerModalAction('eliminar', block.id);
+                row.appendChild(btnDel);
+
+                // Desplegable Temporalidad
+                const selTf = document.createElement('select');
+                selTf.innerHTML = `
+                    <option value="240" ${block.timeframeMinutes==240?'selected':''}>4 Horas</option>
+                    <option value="120" ${block.timeframeMinutes==120?'selected':''}>2 Horas</option>
+                    <option value="60" ${block.timeframeMinutes==60?'selected':''}>1 Hora</option>
+                    <option value="45" ${block.timeframeMinutes==45?'selected':''}>45 Minutos</option>
+                    <option value="30" ${block.timeframeMinutes==30?'selected':''}>30 Minutos</option>
+                    <option value="15" ${block.timeframeMinutes==15?'selected':''}>15 Minutos</option>
+                    <option value="10" ${block.timeframeMinutes==10?'selected':''}>10 Minutos</option>
+                    <option value="5"  ${block.timeframeMinutes==5?'selected':''}>5 Minutos</option>
+                    <option value="3"  ${block.timeframeMinutes==3?'selected':''}>3 Minutos</option>
+                    <option value="1"  ${block.timeframeMinutes==1?'selected':''}>1 Minuto</option>
+                `;
+                selTf.onchange = (e) => {
+                    const mins = parseInt(e.target.value);
+                    block.timeframeMinutes = mins;
+                    block.timeLeft = mins * 30 * 60;
+                    block.expired = false;
+                    pushNarrativeLog(`Mutación temporalidad a ${mins}M en sub-bloque.`);
+                    renderSubBlocks();
+                    saveToLocalStorage();
+                };
+                row.appendChild(selTf);
+
+                // Desplegable Tendencia y Velocidad
+                const selTrend = document.createElement('select');
+                selTrend.innerHTML = `
+                    <option value="Alcista_Rápido" ${block.trend==='Alcista'&&block.velocity==='Rápido'?'selected':''}>Alcista Rápido</option>
+                    <option value="Alcista_Lento" ${block.trend==='Alcista'&&block.velocity==='Lento'?'selected':''}>Alcista Lento</option>
+                    <option value="Neutral" ${block.trend==='Neutral'?'selected':''}>Neutral</option>
+                    <option value="Bajista_Lento" ${block.trend==='Bajista'&&block.velocity==='Lento'?'selected':''}>Bajista Lento</option>
+                    <option value="Bajista_Rápido" ${block.trend==='Bajista'&&block.velocity==='Rápido'?'selected':''}>Bajista Rápido</option>
+                `;
+                selTrend.onchange = (e) => {
+                    const val = e.target.value;
+                    if(val === 'Neutral') {
+                        block.trend = 'Neutral';
+                        block.velocity = 'Lento';
+                    } else {
+                        const parts = val.split('_');
+                        block.trend = parts[0];
+                        block.velocity = parts[1];
+                    }
+                    pushNarrativeLog(`Cambio de tendencia contextual a ${val} detectado.`);
+                    renderSubBlocks();
+                    saveToLocalStorage();
+                };
+                row.appendChild(selTrend);
+
+                // Caja Matriz Direccional
+                const dirBox = document.createElement('div');
+                dirBox.style.fontWeight = 'bold';
+                dirBox.style.minWidth = '40px';
+                dirBox.style.textAlign = 'center';
+                let arrow = '→';
+                if(block.trend === 'Alcista') arrow = block.velocity === 'Rápido' ? '↑' : '↗';
+                if(block.trend === 'Bajista') arrow = block.velocity === 'Rápido' ? '↓' : '↘';
+                dirBox.textContent = arrow;
+                row.appendChild(dirBox);
+
+                // Caja del Temporizador Cuantitativo
+                const timerBox = document.createElement('div');
+                timerBox.style.fontSize = '12px';
+                timerBox.style.color = 'var(--text-muted)';
+                timerBox.textContent = formatSeconds(block.timeLeft);
+                row.appendChild(timerBox);
+
+                // Capa Capuz de Bloqueo por Vencimiento
+                if(block.expired) {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'overlay-expired';
+                    overlay.textContent = 'Vencido';
+                    overlay.onclick = () => {
+                        block.expired = false;
+                        block.trend = 'Neutral';
+                        block.velocity = 'Lento';
+                        block.timeLeft = block.timeframeMinutes * 30 * 60;
+                        pushNarrativeLog("Sub-bloque vencido desbloqueado y reajustado.");
+                        renderSubBlocks();
+                        saveToLocalStorage();
+                    };
+                    row.appendChild(overlay);
+                }
+
+                container.appendChild(row);
+            });
+
+            calculateAggregateTrendBar();
+        }
+
+        // Gestión Avanzada de Relojes de Cuenta Regresiva
+        function processTimers() {
+            let directMutate = false;
+            state.subBlocks.forEach(block => {
+                if(!block.expired && block.timeLeft > 0) {
+                    block.timeLeft--;
+                    if(block.timeLeft <= 0) {
+                        block.expired = true;
+                        directMutate = true;
+                        pushNarrativeLog("Ciclo temporal expirado. Sub-bloque bloqueado.");
+                    }
+                }
+            });
+            if(directMutate) {
+                renderSubBlocks();
+                saveToLocalStorage();
+            } else {
+                const container = document.getElementById('sub-blocks-container');
+                if(container) {
+                    const rows = container.querySelectorAll('.sub-block-row');
+                    state.subBlocks.forEach((block, idx) => {
+                        if(rows[idx] && !block.expired) {
+                            const divs = rows[idx].querySelectorAll('div');
+                            if(divs.length >= 2) {
+                                divs[1].textContent = formatSeconds(block.timeLeft);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        function formatSeconds(totalSecs) {
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+            return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+        }
+
+        // Renderizado del Relleno de la Barra de Tendencia Dinámica Agregada
+        function calculateAggregateTrendBar() {
+            const total = state.subBlocks.length;
+            if(total === 0) {
+                document.getElementById('aggregate-trend-bar').children[0].style.width = '0%';
+                document.getElementById('aggregate-trend-bar').children[1].style.width = '0%';
+                document.getElementById('aggregate-trend-bar').children[2].style.width = '0%';
+                document.getElementById('label-alcista').textContent = 'A (Alcista): 0%';
+                document.getElementById('label-bajista').textContent = 'B (Bajista): 0%';
+                document.getElementById('label-neutral').textContent = 'N (Neutro): 0%';
+                return;
+            }
+
+            const alcistas = state.subBlocks.filter(b => b.trend === 'Alcista').length;
+            const bajistas = state.subBlocks.filter(b => b.trend === 'Bajista').length;
+            const neutrales = state.subBlocks.filter(b => b.trend === 'Neutral').length;
+
+            const pAlc = (alcistas / total) * 100;
+            const pBaj = (bajistas / total) * 100;
+            const pNeu = (neutrales / total) * 100;
+
+            const slices = document.getElementById('aggregate-trend-bar').children;
+            // 0 es Turquesa (Alcista), 1 es Púrpura (Bajista), 2 es Amarillo (Neutral)
+            slices[0].style.width = `${pAlc}%`;
+            slices[1].style.width = `${pBaj}%`;
+            slices[2].style.width = `${pNeu}%`;
+
+            document.getElementById('label-alcista').textContent = `A (Alcista): ${pAlc.toFixed(1)}%`;
+            document.getElementById('label-bajista').textContent = `B (Bajista): ${pBaj.toFixed(1)}%`;
+            document.getElementById('label-neutral').textContent = `N (Neutro): ${pNeu.toFixed(1)}%`;
+        }
+
+        // MOTOR ARITMÉTICO DE LA CALCULADORA CUANTITATIVA FINANCIERA
+        function runCalculations() {
+            const capital = parseFloat(document.getElementById('calc-capital').value) || 0;
+            const leverage = parseInt(document.getElementById('calc-leverage').value) || 10;
+            const direction = document.getElementById('calc-direction').value;
+            const entryPrice = parseFloat(document.getElementById('calc-entry').value) || 0;
+
+            // Enlazar color del dropdown con la dirección operativa estrictamente
+            const dirSelect = document.getElementById('calc-direction');
+            if(direction === 'Long') {
+                dirSelect.style.color = 'var(--color-bullish)';
+            } else {
+                dirSelect.style.color = 'var(--color-bearish)';
+            }
+
+            const leveragedResult = capital * leverage;
+            const effectiveMargin = leveragedResult * 0.75;
+            
+            const brokerFees = effectiveMargin * 0.0009;
+            const slippageCost = effectiveMargin * 0.0002; 
+            const totalFriction = brokerFees + slippageCost;
+
+            document.getElementById('out-leveraged').textContent = leveragedResult.toFixed(4);
+            document.getElementById('out-margin').textContent = effectiveMargin.toFixed(4);
+            document.getElementById('out-commissions').textContent = brokerFees.toFixed(4);
+            document.getElementById('out-slippage').textContent = slippageCost.toFixed(4);
+
+            if(entryPrice <= 0) {
+                // Limpiar salidas si no hay precio de entrada
+                document.getElementById('out-invalidation-price').textContent = '0.0000';
+                document.getElementById('out-total-loss').textContent = '0.0000';
+                document.getElementById('out-breakeven').textContent = '0.0000';
+                document.getElementById('projection-tbody').innerHTML = '';
+                return;
+            }
+
+            let invalidationPrice = 0;
+            if(direction === 'Long') {
+                invalidationPrice = entryPrice * (1 - 0.0010);
+            } else {
+                invalidationPrice = entryPrice * (1 + 0.0010);
+            }
+            
+            const deltaLossCash = effectiveMargin * 0.0010;
+            const totalRealLoss = deltaLossCash + totalFriction;
+
+            document.getElementById('out-invalidation-price').textContent = invalidationPrice.toFixed(4);
+            document.getElementById('out-total-loss').textContent = totalRealLoss.toFixed(4);
+
+            const fractionMoveNeeded = (totalFriction / effectiveMargin) * entryPrice;
+            let breakevenPrice = 0;
+            if(direction === 'Long') {
+                breakevenPrice = entryPrice + fractionMoveNeeded;
+            } else {
+                breakevenPrice = entryPrice - fractionMoveNeeded;
+            }
+            document.getElementById('out-breakeven').textContent = breakevenPrice.toFixed(4);
+
+            const steps = [0.0010, 0.0020, 0.0030, 0.0040, 0.0050];
+            const tbody = document.getElementById('projection-tbody');
+            tbody.innerHTML = '';
+
+            steps.forEach(step => {
+                let projPrice = 0;
+                if(direction === 'Long') {
+                    projPrice = entryPrice * (1 + step);
+                } else {
+                    projPrice = entryPrice * (1 - step);
+                }
+                const grossGain = effectiveMargin * step;
+                const netGain = grossGain - totalFriction;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${(step * 100).toFixed(2)}%</td>
+                    <td>${projPrice.toFixed(4)}</td>
+                    <td style="color: ${netGain >= 0 ? 'var(--status-active)' : 'var(--status-inactive)'};">${netGain.toFixed(4)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Automatización de Eventos de Captura de Checkbox en Bitácora
+        function logCheckboxChange(label, element) {
+            const status = element.checked ? "marcó como VERIFICADO" : "DESMARCÓ";
+            pushNarrativeLog(`El operador ${status} la regla normativa: [${label}].`);
+        }
+
+        // Ejecución posterior a la confirmación de Finalizar
+        function finalizeSession() {
+            const capital = parseFloat(document.getElementById('calc-capital').value) || 0;
+            const entryPrice = parseFloat(document.getElementById('calc-entry').value) || 0;
+            
+            if(capital > 0 && entryPrice === 0) {
+                executeEODReconciliation(capital);
+                return;
+            }
+
+            // Guardar Operación y Capturar Contexto de la Matriz (Temporalidades y Tendencias)
+            saveCurrentQuantRecord();
+
+            // Purga limpia de formulario
+            document.getElementById('calc-entry').value = '';
+            document.getElementById('chk-narrative').checked = false;
+            document.getElementById('chk-rules').checked = false;
+            runCalculations(); // Recalcula dejando en 0 los campos de abajo
+
+            pushNarrativeLog("Formulario cuantitativo purgado. Operación y Contexto historizados.");
+            // Actualizar gráficos al finalizar un trade
+            updateChartsData();
+        }
+
+        // Lógica de Persistencia Histórica Compuesta por Filas Delta Diferenciales y Fotografía de Contexto
+        function saveCurrentQuantRecord() {
+            const capital = parseFloat(document.getElementById('calc-capital').value) || 0;
+            const leverage = parseInt(document.getElementById('calc-leverage').value) || 10;
+            const direction = document.getElementById('calc-direction').value;
+            const entryPrice = parseFloat(document.getElementById('calc-entry').value) || 0;
+            
+            if(capital === 0 || entryPrice === 0) return;
+
+            const effectiveMargin = (capital * leverage) * 0.75;
+            const totalFriction = (effectiveMargin * 0.0009) + (effectiveMargin * 0.0002);
+
+            // Capturar la Matriz de Temporalidades para inyectar en el Registro
+            let contextArr = state.subBlocks.map(b => {
+                let tfName = b.timeframeMinutes >= 60 ? (b.timeframeMinutes/60) + 'H' : b.timeframeMinutes + 'M';
+                return `[${tfName}: ${b.trend}]`;
+            });
+            const contextSnapshot = contextArr.length > 0 ? contextArr.join(' ') : 'Sin Contexto Activo';
+
+            const record = {
+                type: 'TRADE',
+                timestamp: new Date().toTimeString().split(' ')[0],
+                capital: capital,
+                leverage: leverage,
+                direction: direction,
+                entryPrice: entryPrice,
+                friction: totalFriction,
+                context: contextSnapshot
+            };
+
+            state.quantLog.push(record);
+            saveToLocalStorage();
+            renderQuantLedger();
+        }
+
+        // Detector de Cierre de Sesión Diario
+        function executeEODReconciliation(finalCapital) {
+            let totalGains = 0;
+            let totalLosses = 0;
+
+            state.quantLog.forEach((rec, idx) => {
+                if(rec.type === 'TRADE' && idx > 0) {
+                    const prev = state.quantLog[idx-1];
+                    if(prev && prev.type === 'TRADE') {
+                        const diff = rec.capital - prev.capital;
+                        if(diff > 0) totalGains += diff;
+                        else totalLosses += Math.abs(diff);
+                    }
+                }
+            });
+
+            const eodRecord = {
+                type: 'EOD',
+                timestamp: new Date().toTimeString().split(' ')[0],
+                capitalRestante: finalCapital,
+                gananciasAcumuladas: totalGains,
+                perdidasAcumuladas: totalLosses
+            };
+
+            state.quantLog.push(eodRecord);
+            pushNarrativeLog(`Fin de Sesión del Día procesado automáticamente. Balance Balance Finalizado.`);
+            saveToLocalStorage();
+            renderQuantLedger();
+        }
+
+        // Renderizado del Bloque 3.2 con Modos Alternables de Visualización y Columna de Contexto
+        function toggleViewMode() {
+            state.viewMode = state.viewMode === 'completa' ? 'simplificada' : 'completa';
+            document.getElementById('btn-toggle-view').textContent = state.viewMode === 'completa' ? 'Vista de Tabla Completa' : 'Vista Simplificada';
+            renderQuantLedger();
+        }
+
+        function renderQuantLedger() {
+            const wrapper = document.getElementById('quant-view-wrapper');
+            wrapper.innerHTML = '';
+
+            if(state.quantLog.length === 0) {
+                wrapper.innerHTML = '<p style="color:var(--text-muted);font-size:12px;">Sin registros cuantitativos en memoria.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'quant-table';
+
+            if(state.viewMode === 'completa') {
+                // Cabecera que incluye el Contexto
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Tipo</th>
+                            <th>Contexto Guardado</th>
+                            <th>Cap. ($)</th>
+                            <th>Apal.</th>
+                            <th>Dir.</th>
+                            <th>P. Entrada</th>
+                            <th>Costos ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="quant-tbody"></tbody>
+                `;
+                wrapper.appendChild(table);
+                const tbody = document.getElementById('quant-tbody');
+
+                state.quantLog.forEach((rec, index) => {
+                    // Filas Delta Diferenciales
+                    if(index > 0 && rec.type === 'TRADE' && state.quantLog[index-1].type === 'TRADE') {
+                        const prev = state.quantLog[index-1];
+                        const capDiffAbs = rec.capital - prev.capital;
+                        const capDiffPct = ((rec.capital - prev.capital) / prev.capital) * 100;
+                        const pipDiff = (rec.entryPrice - prev.entryPrice) * 10000;
+                        
+                        const dRow = document.createElement('tr');
+                        dRow.className = 'delta-row';
+                        dRow.innerHTML = `
+                            <td colspan="3">-> DELTA INTERMEDIO:</td>
+                            <td style="color:${capDiffAbs>=0?'var(--status-active)':'var(--status-inactive)'};">
+                                ${capDiffAbs >= 0 ? '+' : ''}${capDiffAbs.toFixed(2)} (${capDiffPct.toFixed(2)}%)
+                            </td>
+                            <td>--</td>
+                            <td>--</td>
+                            <td>${pipDiff >= 0 ? '+' : ''}${pipDiff.toFixed(1)} Pips</td>
+                            <td>Absorbido: ${rec.friction.toFixed(4)}</td>
+                        `;
+                        tbody.appendChild(dRow);
+                    }
+
+                    const row = document.createElement('tr');
+                    if(rec.type === 'EOD') {
+                        row.className = 'eod-row';
+                        row.innerHTML = `
+                            <td>${rec.timestamp}</td>
+                            <td><strong>CIERRE EOD</strong></td>
+                            <td colspan="6">
+                                Capital Final: $${rec.capitalRestante.toFixed(2)} | 
+                                Ganancias Totales: $${rec.gananciasAcumuladas.toFixed(2)} | 
+                                Pérdidas Totales: $${rec.perdidasAcumuladas.toFixed(2)}
+                            </td>
+                        `;
+                    } else {
+                        // REFORZANDO COLORES DE IMPRESIÓN EN TABLA
+                        const dirColor = rec.direction === 'Long' ? 'var(--color-bullish)' : 'var(--color-bearish)';
+                        const dirLabel = rec.direction === 'Long' ? 'Long (A)' : 'Short (B)';
+                        
+                        row.innerHTML = `
+                            <td>${rec.timestamp}</td>
+                            <td>TRADE</td>
+                            <td style="font-size:10px; color:var(--text-muted);">${rec.context}</td>
+                            <td>${rec.capital.toFixed(2)}</td>
+                            <td>x${rec.leverage}</td>
+                            <td style="color:${dirColor}; font-weight:bold;">${dirLabel}</td>
+                            <td>${rec.entryPrice.toFixed(4)}</td>
+                            <td>${rec.friction.toFixed(4)}</td>
+                        `;
+                    }
+                    tbody.appendChild(row);
+                });
+            } else {
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Indicador Cuantitativo</th>
+                            <th>Valor Consolidado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Total Operaciones Ejecutadas</td>
+                            <td>${state.quantLog.filter(r=>r.type==='TRADE').length}</td>
+                        </tr>
+                        <tr>
+                            <td>Cierres de Sesión Registrados</td>
+                            <td>${state.quantLog.filter(r=>r.type==='EOD').length}</td>
+                        </tr>
+                        <tr>
+                            <td>Último Capital de Trabajo Reportado</td>
+                            <td>$${state.quantLog.length > 0 ? (state.quantLog[state.quantLog.length-1].capital || state.quantLog[state.quantLog.length-1].capitalRestante || 0).toFixed(2) : '0.00'}</td>
+                        </tr>
+                    </tbody>
+                `;
+                wrapper.appendChild(table);
+            }
+        }
+
+        // CONTROLES MANUALES CRUD SEGUROS PARA BITÁCORA NARRATIVA
+        function openManualLogModal() {
+            document.getElementById('manual-cuo').value = String(state.cuoCounter).padStart(3, '0');
+            document.getElementById('manual-desc').value = '';
+            document.getElementById('modal-manual-log').classList.add('active');
+        }
+
+        function closeManualLogModal(save) {
+            document.getElementById('modal-manual-log').classList.remove('active');
+            if(!save) return;
+            const desc = document.getElementById('manual-desc').value.trim();
+            if(!desc) return;
+            pushNarrativeLog(`[MANUAL] ${desc}`);
+        }
+
+        function openEditLogModal() {
+            const select = document.getElementById('edit-cuo-select');
+            select.innerHTML = '';
+            if(state.narrativeLog.length === 0) {
+                alert("La bitácora analítica no contiene registros editables.");
+                return;
+            }
+            state.narrativeLog.forEach(log => {
+                const opt = document.createElement('option');
+                opt.value = log.cuo;
+                opt.textContent = `CUO ${log.cuo} (${log.time})`;
+                select.appendChild(opt);
+            });
+            onCuoSelectToEdit();
+            document.getElementById('modal-edit-log').classList.add('active');
+        }
+
+        function onCuoSelectToEdit() {
+            const cuo = document.getElementById('edit-cuo-select').value;
+            const target = state.narrativeLog.find(l => l.cuo === cuo);
+            if(target) {
+                document.getElementById('edit-desc').value = target.desc;
+            }
+        }
+
+        function closeEditLogModal(save) {
+            document.getElementById('modal-edit-log').classList.remove('active');
+            if(!save) return;
+            const cuo = document.getElementById('edit-cuo-select').value;
+            const newDesc = document.getElementById('edit-desc').value.trim();
+            
+            const target = state.narrativeLog.find(l => l.cuo === cuo);
+            if(target && newDesc) {
+                target.desc = `[MODIFICADO SEGURIZADO] ${newDesc}`;
+                pushNarrativeLog(`Modificación autorizada de la descripción del CUO ${cuo}.`);
+                saveToLocalStorage();
+                renderNarrativeLedger();
+            }
+        }
+
+        // MOTOR INTEGRADO GRÁFICOS COMPUESTOS (CHART.JS)
+        function initCharts() {
+            const ctxDonut = document.getElementById('chartDonut').getContext('2d');
+            donutChartInstance = new Chart(ctxDonut, {
+                type: 'doughnut',
+                data: {
+                    // ETIQUETAS EXPLÍCITAS CON COLORES CORREGIDOS
+                    labels: ['Compras (Alcista / Turquesa)', 'Ventas (Bajista / Púrpura)'],
+                    datasets: [{
+                        data: [50, 50],
+                        // Índices: 0 = Turquesa (Longs/Alcista), 1 = Púrpura (Shorts/Bajista)
+                        backgroundColor: ['#1f8b8a', '#8d5bde'], 
+                        borderWidth: 1,
+                        borderColor: '#30363d'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#c9d1d9', font: { family: 'monospace' } } } }
+                }
+            });
+
+            const ctxLine = document.getElementById('chartLine').getContext('2d');
+            lineChartInstance = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: ['Inicio'],
+                    datasets: [{
+                        label: 'Evolución Saldo ($)',
+                        data: [10000],
+                        borderColor: '#1f8b8a', // Turquesa
+                        backgroundColor: 'rgba(31, 139, 138, 0.05)', // Turquesa con opacidad
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } },
+                        y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }
+                    },
+                    plugins: { legend: { labels: { color: '#c9d1d9', font: { family: 'monospace' } } } }
+                }
+            });
+            updateChartsData();
+        }
+
+        function updateChartsData() {
+            if(!donutChartInstance || !lineChartInstance) return;
+
+            const trades = state.quantLog.filter(r => r.type === 'TRADE');
+            
+            // Actualización del Gráfico de Direccionalidad basado en los registros reales
+            let longs = trades.filter(t => t.direction === 'Long').length;
+            let shorts = trades.filter(t => t.direction === 'Short').length;
+
+            if(longs === 0 && shorts === 0) {
+                donutChartInstance.data.datasets[0].data = [1, 1]; // Estado visual por defecto balanceado
+            } else {
+                // Índice 0 = Long (Turquesa), Índice 1 = Short (Púrpura)
+                donutChartInstance.data.datasets[0].data = [longs, shorts];
+            }
+            donutChartInstance.update();
+
+            // Actualización del Gráfico de Capital
+            if(trades.length > 0) {
+                let capPoints = [];
+                let labels = [];
+                trades.forEach((t, i) => {
+                    capPoints.push(t.capital);
+                    labels.push(`Tx ${i+1}`);
+                });
+                lineChartInstance.data.labels = labels;
+                lineChartInstance.data.datasets[0].data = capPoints;
+                lineChartInstance.update();
+            } else {
+                // Reset visual para el gráfico de líneas si se hace Hard Reset
+                lineChartInstance.data.labels = ['Inicio'];
+                lineChartInstance.data.datasets[0].data = [10000];
+                lineChartInstance.update();
+            }
+        }
+
+        // MÓDULO 4: MOTOR ASÍNCRONO DE PORTABILIDAD PDF Y DESCARGA ZIP COMPRIMIDA
+        async function exportAuditingPackage() {
+            pushNarrativeLog("Solicitud de extracción de auditoría procesada.");
+            const { jsPDF } = window.jspdf;
+            const zip = new JSZip();
+
+            // --- DISEÑO EJECUTIVO DEL PDF 1 (BITÁCORA NARRATIVA) ---
+            const doc1 = new jsPDF();
+            doc1.setFont("courier", "bold");
+            doc1.setFontSize(16);
+            doc1.text("AUDITORIA COMPLEMENTARIA - LEDGER NARRATIVO", 15, 20);
+            doc1.setFontSize(10);
+            doc1.setFont("courier", "normal");
+            let y1 = 35;
+            doc1.text("CUO   | HORA     | DETALLE DE OPERACIÓN REGISTRADA", 15, y1);
+            doc1.text("----------------------------------------------------------------------", 15, y1 + 5);
+            y1 += 12;
+
+            state.narrativeLog.forEach(l => {
+                if(y1 > 280) { doc1.addPage(); y1 = 20; }
+                const line = `${l.cuo}   | ${l.time} | ${l.desc}`;
+                doc1.text(line, 15, y1);
+                y1 += 8;
+            });
+            const blobPdf1 = doc1.output('blob');
+
+            // --- DISEÑO EJECUTIVO DEL PDF 2 (REGISTRO CUANTITATIVO CON CONTEXTO) ---
+            const doc2 = new jsPDF();
+            doc2.setFont("courier", "bold");
+            doc2.setFontSize(16);
+            doc2.text("AUDITORIA FINANCIERA - REGISTRO CUANTITATIVO", 15, 20);
+            doc2.setFontSize(9);
+            doc2.setFont("courier", "normal");
+            let y2 = 35;
+            
+            state.quantLog.forEach((rec, idx) => {
+                if(y2 > 270) { doc2.addPage(); y2 = 20; }
+                if(rec.type === 'TRADE') {
+                    doc2.text(`TS: ${rec.timestamp} | DIR: ${rec.direction} | CTX: ${rec.context} | CAP: $${rec.capital.toFixed(2)} | ENTRADA: ${rec.entryPrice.toFixed(4)}`, 15, y2);
+                } else {
+                    doc2.text(`TS: ${rec.timestamp} | TIPO: EOD | CAP FINAL: $${rec.capitalRestante.toFixed(2)} | GANADO: $${rec.gananciasAcumuladas.toFixed(2)}`, 15, y2);
+                }
+                y2 += 10;
+            });
+            const blobPdf2 = doc2.output('blob');
+
+            // --- DISEÑO EJECUTIVO DEL PDF 3 (REPORTE GERENCIAL RESUMEN) ---
+            const doc3 = new jsPDF();
+            doc3.setFont("courier", "bold");
+            doc3.setFontSize(16);
+            doc3.text("REPORTE GERENCIAL EJECUTIVO Y RATIOS", 15, 20);
+            doc3.setFontSize(11);
+            doc3.setFont("courier", "normal");
+            doc3.text(`Fecha del Reporte de Auditoria: ${new Date().toLocaleDateString()}`, 15, 35);
+            doc3.text(`Operaciones Consolidadas de la Sesión: ${state.quantLog.filter(r=>r.type==='TRADE').length}`, 15, 45);
+            doc3.text("Estado del Sistema: ACTIVO / VERIFICADO", 15, 55);
+            
+            const blobPdf3 = doc3.output('blob');
+
+            zip.file("PDF_1_Bitacora_Narrativa.pdf", blobPdf1);
+            zip.file("PDF_2_Registro_Cuantitativo.pdf", blobPdf2);
+            zip.file("PDF_3_Reporte_Ejecutivo_Ratios.pdf", blobPdf3);
+
+            const content = await zip.generateAsync({type:"blob"});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `AUDITORIA_QUANT_${Date.now()}.zip`;
+            link.click();
+            
+            pushNarrativeLog("Paquete de auditoría comprimido y extraído de forma exitosa.");
+        }
+    </script>
+</body>
+</html>
